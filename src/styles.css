@@ -55,6 +55,66 @@ body {
   margin: 32px auto;
   padding: 0 20px;
 }
+.app.pro {
+  max-width: 1480px;
+  margin: 18px auto;
+}
+
+/* market header */
+.market-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  padding: 10px 16px;
+  margin-bottom: 14px;
+}
+.mh-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.mh-left .brand {
+  font-size: 16px;
+  font-weight: 800;
+  letter-spacing: -0.3px;
+  white-space: nowrap;
+}
+.mh-left select {
+  margin-left: 6px;
+}
+.mh-stats {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  flex-wrap: wrap;
+}
+.hstat-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+  color: hsl(var(--muted-foreground));
+}
+.hstat-value {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  margin-top: 1px;
+}
+.hstat-value.up {
+  color: hsl(var(--bid));
+}
+.hstat-value.down {
+  color: hsl(var(--ask));
+}
+.mh-right {
+  display: flex;
+  align-items: center;
+}
 
 /* layout grid: chart | book | trades */
 .grid {
@@ -322,22 +382,39 @@ select:focus-visible {
 
 /* book */
 .bookhead {
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  gap: 4px;
   color: hsl(var(--muted-foreground));
   font-size: 11px;
   padding: 0 10px 6px;
+}
+.bookhead span:nth-child(2),
+.bookhead span:nth-child(3) {
+  text-align: right;
 }
 .book {
   padding-bottom: 6px;
 }
 .row {
   position: relative;
-  display: flex;
-  justify-content: space-between;
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1fr;
+  gap: 4px;
   padding: 4px 10px;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+.row:hover {
+  background: hsl(var(--border) / 0.45);
+}
+.row .qty,
+.row .cum {
+  text-align: right;
+}
+.row .cum {
+  color: hsl(var(--muted-foreground));
 }
 .row .bar {
   position: absolute;
@@ -378,7 +455,12 @@ select:focus-visible {
 .mid {
   font-weight: 700;
 }
+.mark {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+}
 .spread {
+  margin-left: auto;
   color: hsl(var(--muted-foreground));
   font-size: 11px;
 }

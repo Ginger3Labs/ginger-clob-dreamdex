@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { formatUnits } from 'viem';
+import { formatUnits, parseAbiItem } from 'viem';
 import { publicClient } from './client';
 import { SPOT_POOL_ABI, type Interval, type Market } from './config';
 
@@ -36,6 +36,18 @@ const INTERVAL_MS: Record<Interval, number> = {
 
 const MARK_POLL_MS = 1500;
 const TAPE_POLL_MS = 1200;
+
+export type Fill = {
+  id: string;
+  price: string;
+  size: string;
+  dir: 'up' | 'down';
+  timestamp: number;
+};
+
+const ORDER_FILLED = parseAbiItem(
+  'event OrderFilled(uint128 indexed takerOrderId, uint128 indexed makerOrderId, uint256 quantityFilled, uint256 takerRemainingQuantity, uint256 makerRemainingQuantity)',
+);
 
 async function readMark(pool: `0x${string}`, quoteDecimals: number): Promise<number | null> {
   try {
@@ -154,4 +166,43 @@ export function usePriceTape(market: Market) {
   }, [market.pool]);
 
   return { ticks };
+}
+
+/** Live real trades from OrderFilled events (price ≈ mark at fill time). */
+export function useFills(market: Market, baseDecimals: number) {
+  const [fills, setFills] = useState<Fill[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    let last = 0;
+
+    const unwatch = publicClient.watchEvent({
+      address: market.pool,
+      event: ORDER_FILLED,
+      onLogs: async (logs) => {
+        if (cancelled || logs.length === 0) return;
+        const price = (await readMark(market.pool, 18)) ?? last;
+        const fresh: Fill[] = logs.map((log: any) => {
+          const dir: 'up' | 'down' = price >= last ? 'up' : 'down';
+          last = price;
+          return {
+            id: `${log.transactionHash}-${log.logIndex}`,
+            price: String(price),
+            size: formatUnits(log.args.quantityFilled as bigint, baseDecimals),
+            dir,
+            timestamp: Date.now(),
+          };
+        });
+        setFills((prev) => [...fresh.reverse(), ...prev].slice(0, 50));
+      },
+    });
+
+    setFills([]);
+    return () => {
+      cancelled = true;
+      unwatch();
+    };
+  }, [market.pool, baseDecimals]);
+
+  return { fills };
 }

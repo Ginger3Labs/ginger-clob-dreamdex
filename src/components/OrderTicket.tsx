@@ -25,17 +25,23 @@ export default function OrderTicket({
   info,
   bestBid,
   bestAsk,
+  side,
+  setSide,
+  price,
+  setPrice,
 }: {
   market: Market;
   info?: PoolInfo;
   bestBid?: number;
   bestAsk?: number;
+  side: Side;
+  setSide: (s: Side) => void;
+  price: string;
+  setPrice: (p: string) => void;
 }) {
   const { address, isConnected, chainId } = useAccount();
-  const [side, setSide] = useState<Side>('buy');
   const [tif, setTif] = useState<Tif>('IOC');
   const [amount, setAmount] = useState('');
-  const [price, setPrice] = useState('');
   const [error, setError] = useState<string>();
   const [okMsg, setOkMsg] = useState<string>();
 

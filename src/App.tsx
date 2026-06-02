@@ -1,51 +1,26 @@
 import { useMemo, useState } from 'react';
 import { INTERVALS, MARKETS, type Interval } from './dreamdex/config';
-import { useOrderbook, type Level } from './dreamdex/useOrderbook';
-import { useCandles, usePriceTape } from './dreamdex/useFeeds';
+import { useOrderbook } from './dreamdex/useOrderbook';
+import { useCandles, useFills, usePriceTape } from './dreamdex/useFeeds';
 import Chart from './components/Chart';
-import PriceTape from './components/PriceTape';
-import ConnectButton from './components/ConnectButton';
+import Orderbook from './components/Orderbook';
+import TradesFeed from './components/TradesFeed';
 import OrderTicket from './components/OrderTicket';
-
-function fmt(n: number, dp = 6) {
-  return n.toLocaleString('en-US', { maximumFractionDigits: dp });
-}
-
-function DepthRows({
-  levels,
-  side,
-  maxQty,
-  priceDp,
-}: {
-  levels: Level[];
-  side: 'bid' | 'ask';
-  maxQty: number;
-  priceDp: number;
-}) {
-  return (
-    <>
-      {levels.map((l, i) => {
-        const pct = maxQty > 0 ? (l.qty / maxQty) * 100 : 0;
-        return (
-          <div className={`row ${side}`} key={`${side}-${i}`}>
-            <span className="bar" style={{ width: `${pct}%` }} />
-            <span className="price">{fmt(l.price, priceDp)}</span>
-            <span className="qty">{fmt(l.qty, 4)}</span>
-          </div>
-        );
-      })}
-    </>
-  );
-}
+import MarketHeader from './components/MarketHeader';
+import ConnectButton from './components/ConnectButton';
 
 export default function App() {
   const [marketIdx, setMarketIdx] = useState(0);
   const [interval, setInterval] = useState<Interval>('1m');
+  const [side, setSide] = useState<'buy' | 'sell'>('buy');
+  const [price, setPrice] = useState('');
   const market = MARKETS[marketIdx];
 
   const book = useOrderbook(market);
+  const baseDecimals = book.info?.base.decimals ?? 18;
   const { ticks } = usePriceTape(market);
   const { candles, loading: candlesLoading } = useCandles(market, interval);
+  const { fills } = useFills(market, baseDecimals);
 
   const priceDp = useMemo(() => {
     const t = book.info?.tickSize ?? '0.01';
@@ -59,70 +34,52 @@ export default function App() {
   const spreadBps =
     bestBid && bestAsk && mid ? ((bestAsk - bestBid) / mid) * 10_000 : undefined;
 
+  // session stats from the mark-price candles we sample
+  const stats = useMemo(() => {
+    if (candles.length === 0) return {};
+    const highs = candles.map((c) => Number(c.high));
+    const lows = candles.map((c) => Number(c.low));
+    const open = Number(candles[0].open);
+    const close = Number(candles[candles.length - 1].close);
+    return {
+      high: Math.max(...highs),
+      low: Math.min(...lows),
+      changePct: open ? ((close - open) / open) * 100 : undefined,
+    };
+  }, [candles]);
+
   const lastTick = ticks[0];
 
-  const maxQty = Math.max(
-    0,
-    ...book.bids.map((l) => l.qty),
-    ...book.asks.map((l) => l.qty),
-  );
-  const asksDisplay = [...book.asks].reverse();
+  function onPick(p: string, s: 'buy' | 'sell') {
+    setPrice(p);
+    setSide(s);
+  }
 
   return (
-    <div className="app">
-      <header>
-        <img className="logo" src="/logo.png" alt="Somnia Exchange" />
-        <div className="titles">
-          <h1>
-            <span className="brand-gradient-text">Somnia Exchange</span>
-            <span className="tag">Pro</span>
-          </h1>
-          <div className="sub">dreamDEX CLOB · Somnia testnet (50312) · live on-chain</div>
-        </div>
-      </header>
-
-      <div className="toolbar">
-        <select
-          value={marketIdx}
-          onChange={(e) => setMarketIdx(Number(e.target.value))}
-        >
-          {MARKETS.map((m, i) => (
-            <option value={i} key={m.pool}>
-              {m.pair}
-            </option>
-          ))}
-        </select>
-
-        <div className="toolbar-right">
-          <div className="ticker">
-            {lastTick && (
-              <span className={`last ${lastTick.dir}`} title="last mark price">
-                {fmt(Number(lastTick.price), priceDp)}
-              </span>
-            )}
-            {book.markPrice !== undefined && (
-              <Pill label="mark" value={fmt(book.markPrice, priceDp)} />
-            )}
-            {spreadBps !== undefined && (
-              <Pill label="spread" value={`${spreadBps.toFixed(1)} bps`} />
-            )}
-          </div>
-          <ConnectButton />
-        </div>
-      </div>
+    <div className="app pro">
+      <MarketHeader
+        markets={MARKETS}
+        marketIdx={marketIdx}
+        onSelect={setMarketIdx}
+        priceDp={priceDp}
+        last={lastTick ? Number(lastTick.price) : book.markPrice ?? mid}
+        lastDir={lastTick?.dir}
+        mark={book.markPrice}
+        spreadBps={spreadBps}
+        high={stats.high}
+        low={stats.low}
+        changePct={stats.changePct}
+        right={<ConnectButton />}
+      />
 
       <div className="grid">
         {/* Chart */}
         <section className="panel chart-panel">
           <div className="panel-title with-controls">
-            <span>Price</span>
+            <span>Price · {market.pair}</span>
             <div className="intervals">
               {INTERVALS.map((iv) => (
-                <button
-                  key={iv}
-                  className={iv === interval ? 'active' : ''}
-                  onClick={() => setInterval(iv)}
-                >
+                <button key={iv} className={iv === interval ? 'active' : ''} onClick={() => setInterval(iv)}>
                   {iv}
                 </button>
               ))}
@@ -135,61 +92,33 @@ export default function App() {
           )}
         </section>
 
-        {/* Order book + order ticket */}
+        {/* Order book + trades */}
         <div className="col">
-        <section className="panel">
-          <div className="panel-title">Order Book</div>
-          <div className="bookhead">
-            <span>price ({book.info?.quote.symbol ?? 'quote'})</span>
-            <span>size ({book.info?.base.symbol ?? 'base'})</span>
-          </div>
-          <div className="book">
-            {book.error && <div className="error">⚠ {book.error}</div>}
-            <DepthRows levels={asksDisplay} side="ask" maxQty={maxQty} priceDp={priceDp} />
-            <div className="midline">
-              {mid ? (
-                <>
-                  <span className="mid">{fmt(mid, priceDp)}</span>
-                  {spreadBps !== undefined && (
-                    <span className="spread">{spreadBps.toFixed(1)} bps</span>
-                  )}
-                </>
-              ) : book.loading ? (
-                'loading…'
-              ) : (
-                'no liquidity'
-              )}
-            </div>
-            <DepthRows levels={book.bids} side="bid" maxQty={maxQty} priceDp={priceDp} />
-          </div>
-        </section>
+          <Orderbook book={book} priceDp={priceDp} onPick={onPick} />
+          <TradesFeed
+            fills={fills}
+            ticks={ticks}
+            priceDp={priceDp}
+            baseSymbol={book.info?.base.symbol ?? 'size'}
+          />
+        </div>
 
+        {/* Order ticket */}
         <OrderTicket
           market={market}
           info={book.info}
           bestBid={bestBid}
           bestAsk={bestAsk}
+          side={side}
+          setSide={setSide}
+          price={price}
+          setPrice={setPrice}
         />
-        </div>
-
-        {/* Mark-price tape */}
-        <div className="trades-wrap">
-          <PriceTape ticks={ticks} priceDp={priceDp} />
-        </div>
       </div>
 
       <footer>
-        pool {market.pool} · order book, candles & mark-price tape all read live on-chain (testnet has no real fills)
+        pool {market.pool} · order book on-chain · trades from OrderFilled · candles from mark price · testnet 50312
       </footer>
     </div>
-  );
-}
-
-function Pill({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="pill">
-      <span className="pill-label">{label}</span>
-      <span className="pill-value">{value}</span>
-    </span>
   );
 }
