@@ -190,6 +190,61 @@ select:focus-visible {
   outline: none;
   border-color: hsl(var(--primary));
 }
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* connect button */
+.btn-connect {
+  background: var(--brand-gradient);
+  color: #fff;
+  border: none;
+  border-radius: 999px;
+  padding: 9px 16px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.btn-connect:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.btn-connect.warn {
+  background: hsl(38 92% 50%);
+  color: #111;
+}
+.btn-connect.ghost {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+  font-variant-numeric: tabular-nums;
+}
+.wallet-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.bal-chip {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 999px;
+  padding: 6px 12px;
+  font-size: 13px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: hsl(var(--foreground));
+}
+
 /* ticker */
 .ticker {
   display: flex;
@@ -395,6 +450,147 @@ select:focus-visible {
   color: hsl(var(--muted-foreground));
   font-size: 12px;
   text-align: center;
+}
+
+/* order ticket */
+.ticket {
+  padding: 12px 14px 14px;
+}
+.ticket .panel-title {
+  padding: 0 0 10px;
+}
+.seg {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.seg button {
+  flex: 1;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 8px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.seg.side button.active.buy {
+  background: hsl(var(--bid) / 0.18);
+  border-color: hsl(var(--bid));
+  color: hsl(var(--bid));
+}
+.seg.side button.active.sell {
+  background: hsl(var(--ask) / 0.18);
+  border-color: hsl(var(--ask));
+  color: hsl(var(--ask));
+}
+.seg.tif button.active {
+  background: hsl(var(--primary) / 0.18);
+  border-color: hsl(var(--primary));
+  color: hsl(var(--foreground));
+}
+.field {
+  display: block;
+  margin-bottom: 10px;
+}
+.field > span {
+  display: block;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  margin-bottom: 4px;
+}
+.field input {
+  width: 100%;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: hsl(var(--foreground));
+  font-family: inherit;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+}
+.field input:focus-visible {
+  outline: none;
+  border-color: hsl(var(--primary));
+}
+.input-row {
+  display: flex;
+  gap: 6px;
+}
+.input-row input {
+  flex: 1;
+}
+.mini {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  border-radius: 8px;
+  padding: 0 12px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.cost {
+  font-size: 12px;
+  color: hsl(var(--muted-foreground));
+  margin: 2px 0 10px;
+}
+.cost b {
+  color: hsl(var(--foreground));
+}
+.hint {
+  font-size: 11px;
+  color: hsl(38 92% 60%);
+  margin-bottom: 6px;
+}
+.hint.center {
+  text-align: center;
+  color: hsl(var(--muted-foreground));
+  padding: 6px 0;
+}
+.btn-place {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  padding: 12px;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 800;
+  color: #fff;
+  cursor: pointer;
+  margin-top: 4px;
+}
+.btn-place.buy {
+  background: hsl(var(--bid));
+}
+.btn-place.sell {
+  background: hsl(var(--ask));
+}
+.btn-place:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.msg {
+  font-size: 12px;
+  margin-top: 8px;
+  word-break: break-word;
+}
+.msg.err {
+  color: hsl(var(--ask));
+}
+.msg.ok {
+  color: hsl(var(--bid));
+}
+.txlink {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 12px;
+  color: hsl(var(--primary));
+  text-decoration: none;
 }
 
 footer {

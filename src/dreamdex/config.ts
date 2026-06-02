@@ -12,6 +12,9 @@ export const somniaTestnet = defineChain({
   rpcUrls: {
     default: { http: ['https://api.infra.testnet.somnia.network/'] },
   },
+  blockExplorers: {
+    default: { name: 'Shannon Explorer', url: 'https://shannon-explorer.somnia.network' },
+  },
   testnet: true,
 });
 
@@ -91,5 +94,59 @@ export const SPOT_POOL_ABI = [
       { name: 'emaValue', type: 'uint256' },
       { name: 'lastUpdateNs', type: 'uint64' },
     ],
+  },
+  {
+    // Wallet-funded taker order (IOC=2 or FOK=1). payable for native input.
+    type: 'function',
+    name: 'placeTakerOrderWithoutVault',
+    stateMutability: 'payable',
+    inputs: [
+      { name: 'isBid', type: 'bool' },
+      { name: 'userData', type: 'uint64' },
+      { name: 'price', type: 'uint256' },
+      { name: 'quantity', type: 'uint256' },
+      { name: 'expireTimestampNs', type: 'uint64' },
+      { name: 'orderType', type: 'uint8' },
+      { name: 'selfMatchingOption', type: 'uint8' },
+      { name: 'builder', type: 'address' },
+      { name: 'builderFeeBpsTimes1k', type: 'uint96' },
+    ],
+    outputs: [
+      { name: 'success', type: 'bool' },
+      { name: 'orderId', type: 'uint128' },
+    ],
+  },
+] as const;
+
+// Order type codes for placeTakerOrderWithoutVault (wallet funding ⇒ IOC/FOK only)
+export const ORDER_TYPE = { FOK: 1, IOC: 2 } as const;
+
+export const ERC20_ABI = [
+  {
+    type: 'function',
+    name: 'allowance',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'spender', type: 'address' },
+    ],
+    outputs: [{ type: 'uint256' }],
+  },
+  {
+    type: 'function',
+    name: 'approve',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'spender', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [{ type: 'bool' }],
+  },
+  {
+    type: 'function',
+    name: 'balanceOf',
+    stateMutability: 'view',
+    inputs: [{ name: 'account', type: 'address' }],
+    outputs: [{ type: 'uint256' }],
   },
 ] as const;

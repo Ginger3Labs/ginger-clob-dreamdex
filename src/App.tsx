@@ -4,6 +4,8 @@ import { useOrderbook, type Level } from './dreamdex/useOrderbook';
 import { useCandles, usePriceTape } from './dreamdex/useFeeds';
 import Chart from './components/Chart';
 import PriceTape from './components/PriceTape';
+import ConnectButton from './components/ConnectButton';
+import OrderTicket from './components/OrderTicket';
 
 function fmt(n: number, dp = 6) {
   return n.toLocaleString('en-US', { maximumFractionDigits: dp });
@@ -91,21 +93,21 @@ export default function App() {
           ))}
         </select>
 
-        <div className="ticker">
-          {lastTick && (
-            <span className={`last ${lastTick.dir}`} title="last mark price">
-              {fmt(Number(lastTick.price), priceDp)}
-            </span>
-          )}
-          {book.markPrice !== undefined && (
-            <Pill label="mark" value={fmt(book.markPrice, priceDp)} />
-          )}
-          {spreadBps !== undefined && (
-            <Pill label="spread" value={`${spreadBps.toFixed(1)} bps`} />
-          )}
-          {book.info && (
-            <Pill label="fees" value={`${book.info.makerFee}/${book.info.takerFee}`} />
-          )}
+        <div className="toolbar-right">
+          <div className="ticker">
+            {lastTick && (
+              <span className={`last ${lastTick.dir}`} title="last mark price">
+                {fmt(Number(lastTick.price), priceDp)}
+              </span>
+            )}
+            {book.markPrice !== undefined && (
+              <Pill label="mark" value={fmt(book.markPrice, priceDp)} />
+            )}
+            {spreadBps !== undefined && (
+              <Pill label="spread" value={`${spreadBps.toFixed(1)} bps`} />
+            )}
+          </div>
+          <ConnectButton />
         </div>
       </div>
 
@@ -133,7 +135,8 @@ export default function App() {
           )}
         </section>
 
-        {/* Order book */}
+        {/* Order book + order ticket */}
+        <div className="col">
         <section className="panel">
           <div className="panel-title">Order Book</div>
           <div className="bookhead">
@@ -160,6 +163,14 @@ export default function App() {
             <DepthRows levels={book.bids} side="bid" maxQty={maxQty} priceDp={priceDp} />
           </div>
         </section>
+
+        <OrderTicket
+          market={market}
+          info={book.info}
+          bestBid={bestBid}
+          bestAsk={bestAsk}
+        />
+        </div>
 
         {/* Mark-price tape */}
         <div className="trades-wrap">

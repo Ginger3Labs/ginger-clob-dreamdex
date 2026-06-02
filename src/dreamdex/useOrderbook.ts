@@ -5,14 +5,19 @@ import { SPOT_POOL_ABI, tokenMeta, type Market } from './config';
 
 export type Level = { price: number; qty: number };
 
+export type TokenInfo = { symbol: string; decimals: number; address: `0x${string}` };
+
 export type PoolInfo = {
-  base: { symbol: string; decimals: number };
-  quote: { symbol: string; decimals: number };
+  base: TokenInfo;
+  quote: TokenInfo;
   makerFee: bigint;
   takerFee: bigint;
   tickSize: string;
   lotSize: string;
   minQty: string;
+  tickRaw: bigint;
+  lotRaw: bigint;
+  minQtyRaw: bigint;
 };
 
 export type Book = {
@@ -77,8 +82,8 @@ export function useOrderbook(market: Market): Book {
             bigint,
           ];
 
-        const base = tokenMeta(baseAddr);
-        const quote = tokenMeta(quoteAddr);
+        const base = { ...tokenMeta(baseAddr), address: baseAddr };
+        const quote = { ...tokenMeta(quoteAddr), address: quoteAddr };
 
         const mapLevels = (rows: readonly { price: bigint; quantity: bigint }[]) =>
           rows.map((l) => ({
@@ -94,6 +99,9 @@ export function useOrderbook(market: Market): Book {
           tickSize: formatUnits(tick, quote.decimals),
           lotSize: formatUnits(lot, base.decimals),
           minQty: formatUnits(minQty, base.decimals),
+          tickRaw: tick,
+          lotRaw: lot,
+          minQtyRaw: minQty,
         };
 
         const emaVal = ema ? (ema as readonly [bigint, bigint])[0] : 0n;
