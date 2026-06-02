@@ -1,9 +1,9 @@
 import { useState } from 'react';
 import { useAccount, useWriteContract } from 'wagmi';
-import { publicClient } from '../dreamdex/client';
 import { SPOT_POOL_ABI, somniaTestnet, type Market } from '../dreamdex/config';
 import type { PoolInfo } from '../dreamdex/useOrderbook';
 import { useOpenOrders } from '../dreamdex/useOpenOrders';
+import { useTxToast } from './Toast';
 
 function fmt(n: number, dp: number) {
   return n.toLocaleString('en-US', { maximumFractionDigits: dp });
@@ -22,25 +22,20 @@ export default function OpenOrders({
   const [refreshKey, setRefreshKey] = useState(0);
   const { orders, loading } = useOpenOrders(market, info, refreshKey);
   const { writeContractAsync } = useWriteContract();
+  const track = useTxToast();
   const [busyId, setBusyId] = useState<string>();
-  const [error, setError] = useState<string>();
 
   const onChain = chainId === somniaTestnet.id;
 
   async function cancel(id: bigint) {
-    setError(undefined);
     setBusyId(id.toString());
     try {
-      const h = await writeContractAsync({
-        address: market.pool,
-        abi: SPOT_POOL_ABI,
-        functionName: 'cancelOrder',
-        args: [id],
-      });
-      await publicClient.waitForTransactionReceipt({ hash: h });
+      await track('Cancel order', () =>
+        writeContractAsync({ address: market.pool, abi: SPOT_POOL_ABI, functionName: 'cancelOrder', args: [id] }),
+      );
       setRefreshKey((k) => k + 1);
-    } catch (e: any) {
-      setError(e?.shortMessage ?? e?.message ?? String(e));
+    } catch {
+      /* toast shows the error */
     } finally {
       setBusyId(undefined);
     }
@@ -87,8 +82,6 @@ export default function OpenOrders({
           ))}
         </div>
       )}
-
-      {error && <div className="msg err">⚠ {error}</div>}
     </section>
   );
 }

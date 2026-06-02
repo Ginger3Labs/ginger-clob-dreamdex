@@ -1,19 +1,19 @@
 import { useState } from 'react';
 import { maxUint256, parseUnits } from 'viem';
 import { useAccount, useReadContract, useWriteContract } from 'wagmi';
-import { publicClient } from '../dreamdex/client';
 import { ERC20_ABI, NATIVE_TOKEN, SPOT_POOL_ABI, somniaTestnet, type Market } from '../dreamdex/config';
 import type { PoolInfo } from '../dreamdex/useOrderbook';
 import { useVault } from '../dreamdex/useVault';
+import { useTxToast } from './Toast';
 
 export default function Vault({ market, info }: { market: Market; info?: PoolInfo }) {
   const { address, chainId } = useAccount();
   const vault = useVault(market, info);
   const { writeContractAsync, isPending } = useWriteContract();
+  const track = useTxToast();
   const [token, setToken] = useState<'base' | 'quote'>('quote');
   const [amount, setAmount] = useState('');
   const [busy, setBusy] = useState<string>();
-  const [error, setError] = useState<string>();
 
   const onChain = chainId === somniaTestnet.id;
   const t = info ? (token === 'base' ? info.base : info.quote) : undefined;
@@ -29,34 +29,30 @@ export default function Vault({ market, info }: { market: Market; info?: PoolInf
 
   async function deposit() {
     if (!t || !info || !amount) return;
-    setError(undefined);
     try {
       const raw = parseUnits(amount, t.decimals);
       if (isNative) {
         setBusy('deposit');
-        const h = await writeContractAsync({
-          address: market.pool, abi: SPOT_POOL_ABI, functionName: 'depositNative', args: [], value: raw,
-        });
-        await publicClient.waitForTransactionReceipt({ hash: h });
+        await track(`Deposit ${t.symbol}`, () =>
+          writeContractAsync({ address: market.pool, abi: SPOT_POOL_ABI, functionName: 'depositNative', args: [], value: raw }),
+        );
       } else {
         if (allowance === undefined || (allowance as bigint) < raw) {
           setBusy('approve');
-          const ah = await writeContractAsync({
-            address: t.address, abi: ERC20_ABI, functionName: 'approve', args: [market.pool, maxUint256],
-          });
-          await publicClient.waitForTransactionReceipt({ hash: ah });
+          await track(`Approve ${t.symbol}`, () =>
+            writeContractAsync({ address: t.address, abi: ERC20_ABI, functionName: 'approve', args: [market.pool, maxUint256] }),
+          );
           await refetchAllowance();
         }
         setBusy('deposit');
-        const h = await writeContractAsync({
-          address: market.pool, abi: SPOT_POOL_ABI, functionName: 'deposit', args: [t.address, raw],
-        });
-        await publicClient.waitForTransactionReceipt({ hash: h });
+        await track(`Deposit ${t.symbol}`, () =>
+          writeContractAsync({ address: market.pool, abi: SPOT_POOL_ABI, functionName: 'deposit', args: [t.address, raw] }),
+        );
       }
       setAmount('');
       vault.refetch();
-    } catch (e: any) {
-      setError(e?.shortMessage ?? e?.message ?? String(e));
+    } catch {
+      /* toast shows the error */
     } finally {
       setBusy(undefined);
     }
@@ -64,19 +60,19 @@ export default function Vault({ market, info }: { market: Market; info?: PoolInf
 
   async function withdraw() {
     if (!t || !amount) return;
-    setError(undefined);
     try {
       const raw = parseUnits(amount, t.decimals);
       setBusy('withdraw');
-      const h = await writeContractAsync({
-        address: market.pool, abi: SPOT_POOL_ABI, functionName: 'withdraw',
-        args: [isNative ? NATIVE_TOKEN : t.address, raw],
-      });
-      await publicClient.waitForTransactionReceipt({ hash: h });
+      await track(`Withdraw ${t.symbol}`, () =>
+        writeContractAsync({
+          address: market.pool, abi: SPOT_POOL_ABI, functionName: 'withdraw',
+          args: [isNative ? NATIVE_TOKEN : t.address, raw],
+        }),
+      );
       setAmount('');
       vault.refetch();
-    } catch (e: any) {
-      setError(e?.shortMessage ?? e?.message ?? String(e));
+    } catch {
+      /* toast shows the error */
     } finally {
       setBusy(undefined);
     }
@@ -111,8 +107,6 @@ export default function Vault({ market, info }: { market: Market; info?: PoolInf
           {busy === 'withdraw' ? 'Withdrawing…' : 'Withdraw'}
         </button>
       </div>
-
-      {error && <div className="msg err">⚠ {error}</div>}
     </section>
   );
 }

@@ -11,7 +11,8 @@ Working backlog. See `PLAN.md` for the full phased plan.
 ## Layout / polish
 - [x] Order book + mark price must not jump — fixed-height rows, scroll inside.
 - [ ] Stable column heights across panels (avoid reflow on data updates).
-- [ ] Toast notifications for tx lifecycle (pending → confirmed → failed).
+- [x] Toast notifications for tx lifecycle (pending → confirming → confirmed/failed)
+      across order place/approve, vault deposit/withdraw, and cancel.
 
 ## Remaining phases (from PLAN.md)
 - [ ] Phase 5 — Stop / take-profit (`SpotStopOrderRegistry`), multi-hop swap

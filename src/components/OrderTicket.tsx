@@ -1,12 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { formatUnits, maxUint256, parseUnits, zeroAddress } from 'viem';
-import {
-  useAccount,
-  useBalance,
-  useReadContract,
-  useWaitForTransactionReceipt,
-  useWriteContract,
-} from 'wagmi';
+import { useAccount, useBalance, useReadContract, useWriteContract } from 'wagmi';
 import { publicClient } from '../dreamdex/client';
 import {
   ERC20_ABI,
@@ -19,6 +13,7 @@ import {
 import type { PoolInfo } from '../dreamdex/useOrderbook';
 import { useVault } from '../dreamdex/useVault';
 import Help from './Help';
+import { useTxToast } from './Toast';
 
 type Side = 'buy' | 'sell';
 type Funding = 'wallet' | 'vault';
@@ -61,12 +56,10 @@ export default function OrderTicket({
   const [tif, setTif] = useState<Tif>('IOC');
   const [vtype, setVtype] = useState<VaultType>('GTC');
   const [amount, setAmount] = useState('');
-  const [error, setError] = useState<string>();
-  const [okMsg, setOkMsg] = useState<string>();
-  const [hash, setHash] = useState<`0x${string}`>();
+  const [busy, setBusy] = useState(false);
 
-  const { writeContractAsync, isPending } = useWriteContract();
-  const { isLoading: confirming, isSuccess: confirmed } = useWaitForTransactionReceipt({ hash });
+  const { writeContractAsync } = useWriteContract();
+  const track = useTxToast();
   const vault = useVault(market, info);
 
   const onChain = chainId === somniaTestnet.id;
@@ -162,23 +155,24 @@ export default function OrderTicket({
 
   async function handleApprove() {
     if (!inputToken) return;
-    setError(undefined); setOkMsg(undefined);
+    setBusy(true);
     try {
-      const h = await writeContractAsync({
-        address: inputToken.address, abi: ERC20_ABI, functionName: 'approve', args: [market.pool, maxUint256],
-      });
-      setHash(h);
-      await publicClient.waitForTransactionReceipt({ hash: h });
+      await track(`Approve ${inputToken.symbol}`, () =>
+        writeContractAsync({
+          address: inputToken.address, abi: ERC20_ABI, functionName: 'approve', args: [market.pool, maxUint256],
+        }),
+      );
       await refetchAllowance();
-      setOkMsg('Approved ✓');
-    } catch (e: any) {
-      setError(e?.shortMessage ?? e?.message ?? String(e));
+    } catch {
+      /* toast shows the error */
+    } finally {
+      setBusy(false);
     }
   }
 
   async function handlePlace() {
     if (!info || !calc || !address) return;
-    setError(undefined); setOkMsg(undefined);
+    setBusy(true);
 
     let ot: number;
     let ttl: number;
@@ -192,27 +186,28 @@ export default function OrderTicket({
     const expireNs = BigInt(Math.floor(Date.now() / 1000) + ttl) * 1_000_000_000n;
     const args = [side === 'buy', 0n, priceRaw, calc.quantityRaw, expireNs, ot, 0, zeroAddress, 0n] as const;
     const base = { address: market.pool, abi: SPOT_POOL_ABI, args } as const;
+    const title = `${side === 'buy' ? 'Buy' : 'Sell'} ${info.base.symbol}`;
 
     try {
-      let h: `0x${string}`;
-      if (funding === 'wallet') {
-        const value = isNativeInput ? calc.quantityRaw : 0n;
-        await publicClient.simulateContract({ account: address, ...base, functionName: 'placeTakerOrderWithoutVault', value });
-        h = await writeContractAsync({ ...base, functionName: 'placeTakerOrderWithoutVault', value });
-      } else {
+      await track(title, async () => {
+        if (funding === 'wallet') {
+          const value = isNativeInput ? calc.quantityRaw : 0n;
+          await publicClient.simulateContract({ account: address, ...base, functionName: 'placeTakerOrderWithoutVault', value });
+          return writeContractAsync({ ...base, functionName: 'placeTakerOrderWithoutVault', value });
+        }
         await publicClient.simulateContract({ account: address, ...base, functionName: 'placeOrder' });
-        h = await writeContractAsync({ ...base, functionName: 'placeOrder' });
-      }
-      setHash(h);
-      setOkMsg(funding === 'vault' && (vtype === 'GTC' || vtype === 'POST_ONLY') ? 'Limit order placed (resting)' : 'Order submitted');
+        return writeContractAsync({ ...base, functionName: 'placeOrder' });
+      });
       setAmount('');
       vault.refetch();
-    } catch (e: any) {
-      setError(e?.shortMessage ?? e?.message ?? String(e));
+    } catch {
+      /* toast shows the error */
+    } finally {
+      setBusy(false);
     }
   }
 
-  const disabled = !calc || calc.errs.length > 0 || isPending || confirming;
+  const disabled = !calc || calc.errs.length > 0 || busy;
   const dp = info ? Math.max(info.tickSize.split('.')[1]?.length ?? 2, 2) : 2;
 
   const typeDesc =
@@ -352,25 +347,17 @@ export default function OrderTicket({
       ) : !onChain ? (
         <div className="hint center">Switch to Somnia testnet</div>
       ) : needsApproval ? (
-        <button className={`btn-place ${side}`} disabled={isPending} onClick={handleApprove}>
-          {isPending ? 'Approving…' : `Approve ${inputToken?.symbol}`}
+        <button className={`btn-place ${side}`} disabled={busy} onClick={handleApprove}>
+          {busy ? 'Approving…' : `Approve ${inputToken?.symbol}`}
         </button>
       ) : (
         <button className={`btn-place ${side}`} disabled={disabled} onClick={handlePlace}>
-          {isPending || confirming ? 'Submitting…' : `${side === 'buy' ? 'Buy' : 'Sell'} ${info?.base.symbol ?? ''}`}
+          {busy ? 'Submitting…' : `${side === 'buy' ? 'Buy' : 'Sell'} ${info?.base.symbol ?? ''}`}
         </button>
       )}
 
       {funding === 'vault' && (
         <div className="hint center small">Vault funding enables resting GTC / Post-Only orders.</div>
-      )}
-
-      {error && <div className="msg err">⚠ {error}</div>}
-      {okMsg && <div className="msg ok">{okMsg}</div>}
-      {hash && (
-        <a className="txlink" href={`${somniaTestnet.blockExplorers.default.url}/tx/${hash}`} target="_blank" rel="noreferrer">
-          {confirmed ? 'confirmed ↗' : confirming ? 'confirming… ↗' : 'view tx ↗'}
-        </a>
       )}
     </section>
   );
