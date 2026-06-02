@@ -616,6 +616,68 @@ select:focus-visible {
   font-weight: 600;
   cursor: pointer;
 }
+.market-px {
+  font-size: 13px;
+  font-weight: 600;
+  padding: 9px 12px;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  font-variant-numeric: tabular-nums;
+}
+.market-px em {
+  color: hsl(var(--muted-foreground));
+  font-style: normal;
+  font-size: 11px;
+}
+.link-max {
+  float: right;
+  background: none;
+  border: none;
+  color: hsl(var(--primary));
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  padding: 0;
+}
+.slider {
+  width: 100%;
+  margin: 2px 0 8px;
+  accent-color: hsl(var(--primary));
+  cursor: pointer;
+}
+.pcts {
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.pcts button {
+  flex: 1;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 5px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+.pcts button:hover {
+  color: hsl(var(--foreground));
+  border-color: hsl(var(--primary));
+}
+.balances {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  font-variant-numeric: tabular-nums;
+  padding: 8px 0;
+  border-top: 1px solid hsl(var(--border));
+  margin-bottom: 6px;
+}
 .cost {
   font-size: 12px;
   color: hsl(var(--muted-foreground));
@@ -623,6 +685,9 @@ select:focus-visible {
 }
 .cost b {
   color: hsl(var(--foreground));
+}
+.cost .fee {
+  color: hsl(var(--bid));
 }
 .hint {
   font-size: 11px;
