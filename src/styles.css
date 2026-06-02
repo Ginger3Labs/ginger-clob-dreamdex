@@ -401,13 +401,18 @@ select:focus-visible {
   display: grid;
   grid-template-columns: 1.1fr 1fr 1fr;
   gap: 4px;
-  padding: 4px 10px;
+  height: 24px;
+  align-items: center;
+  padding: 0 10px;
   font-size: 13px;
   font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
-.row:hover {
+.row:not(.empty):hover {
   background: hsl(var(--border) / 0.45);
+}
+.row.empty {
+  cursor: default;
 }
 .row .qty,
 .row .cum {
@@ -484,7 +489,7 @@ select:focus-visible {
   text-align: right;
 }
 .trades-body {
-  max-height: 412px;
+  height: 240px;
   overflow-y: auto;
   padding-bottom: 6px;
 }

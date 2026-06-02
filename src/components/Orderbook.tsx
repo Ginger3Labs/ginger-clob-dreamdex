@@ -67,7 +67,15 @@ export default function Orderbook({
   const spreadBps =
     bestBid && bestAsk && mid ? ((bestAsk - bestBid) / mid) * 10_000 : undefined;
 
-  const asksDisplay = [...asks].reverse();
+  // Pad to a fixed number of rows so the book never changes height (no jumping).
+  const asksRows: (Row | null)[] = [
+    ...Array(Math.max(0, ROWS - asks.length)).fill(null),
+    ...[...asks].reverse(),
+  ];
+  const bidsRows: (Row | null)[] = [
+    ...bids,
+    ...Array(Math.max(0, ROWS - bids.length)).fill(null),
+  ];
 
   return (
     <section className="panel book-panel">
@@ -91,19 +99,23 @@ export default function Orderbook({
       <div className="book">
         {book.error && <div className="error">⚠ {book.error}</div>}
 
-        {asksDisplay.map((r, i) => (
-          <div
-            className="row ask"
-            key={`a-${i}`}
-            onClick={() => onPick(r.price.toFixed(groupDp), 'buy')}
-            title="click to buy at this price"
-          >
-            <span className="bar" style={{ width: `${(r.cum / maxCum) * 100}%` }} />
-            <span className="price">{fmt(r.price, Math.max(groupDp, priceDp))}</span>
-            <span className="qty">{fmt(r.qty, 3)}</span>
-            <span className="cum">{fmt(r.cum, 2)}</span>
-          </div>
-        ))}
+        {asksRows.map((r, i) =>
+          r ? (
+            <div
+              className="row ask"
+              key={`a-${i}`}
+              onClick={() => onPick(r.price.toFixed(groupDp), 'buy')}
+              title="click to buy at this price"
+            >
+              <span className="bar" style={{ width: `${(r.cum / maxCum) * 100}%` }} />
+              <span className="price">{fmt(r.price, Math.max(groupDp, priceDp))}</span>
+              <span className="qty">{fmt(r.qty, 3)}</span>
+              <span className="cum">{fmt(r.cum, 2)}</span>
+            </div>
+          ) : (
+            <div className="row empty" key={`a-${i}`} />
+          ),
+        )}
 
         <div className="midline">
           {mid ? (
@@ -123,19 +135,23 @@ export default function Orderbook({
           )}
         </div>
 
-        {bids.map((r, i) => (
-          <div
-            className="row bid"
-            key={`b-${i}`}
-            onClick={() => onPick(r.price.toFixed(groupDp), 'sell')}
-            title="click to sell at this price"
-          >
-            <span className="bar" style={{ width: `${(r.cum / maxCum) * 100}%` }} />
-            <span className="price">{fmt(r.price, Math.max(groupDp, priceDp))}</span>
-            <span className="qty">{fmt(r.qty, 3)}</span>
-            <span className="cum">{fmt(r.cum, 2)}</span>
-          </div>
-        ))}
+        {bidsRows.map((r, i) =>
+          r ? (
+            <div
+              className="row bid"
+              key={`b-${i}`}
+              onClick={() => onPick(r.price.toFixed(groupDp), 'sell')}
+              title="click to sell at this price"
+            >
+              <span className="bar" style={{ width: `${(r.cum / maxCum) * 100}%` }} />
+              <span className="price">{fmt(r.price, Math.max(groupDp, priceDp))}</span>
+              <span className="qty">{fmt(r.qty, 3)}</span>
+              <span className="cum">{fmt(r.cum, 2)}</span>
+            </div>
+          ) : (
+            <div className="row empty" key={`b-${i}`} />
+          ),
+        )}
       </div>
     </section>
   );
