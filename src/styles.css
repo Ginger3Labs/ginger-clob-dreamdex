@@ -116,6 +116,149 @@ body {
   align-items: center;
 }
 
+/* 4-column terminal layout */
+.terminal {
+  display: grid;
+  grid-template-columns: 210px minmax(0, 1fr) 300px 300px;
+  gap: 12px;
+  align-items: start;
+}
+.terminal.no-markets {
+  grid-template-columns: 44px minmax(0, 1fr) 300px 300px;
+}
+.center-col {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+@media (max-width: 1200px) {
+  .terminal,
+  .terminal.no-markets {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* market list */
+.market-list .ml-rows {
+  display: flex;
+  flex-direction: column;
+}
+.ml-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: none;
+  border: none;
+  border-left: 2px solid transparent;
+  color: hsl(var(--foreground));
+  font-family: inherit;
+  padding: 9px 12px;
+  cursor: pointer;
+  font-variant-numeric: tabular-nums;
+}
+.ml-row:hover {
+  background: hsl(var(--border) / 0.4);
+}
+.ml-row.active {
+  border-left-color: hsl(var(--primary));
+  background: hsl(var(--primary) / 0.1);
+}
+.ml-sym {
+  font-size: 13px;
+  font-weight: 700;
+}
+.ml-sym em {
+  color: hsl(var(--muted-foreground));
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 400;
+}
+.ml-px {
+  font-size: 12px;
+}
+.market-list.collapsed {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  border-radius: 12px;
+  height: 100%;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 10px 0;
+  gap: 14px;
+}
+.ml-toggle {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--muted-foreground));
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+.ml-vert {
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: hsl(var(--muted-foreground));
+}
+
+/* bottom tabs panel */
+.bottom-tabbar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.bottom-tabbar button {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: hsl(var(--muted-foreground));
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+.bottom-tabbar button.active {
+  color: hsl(var(--foreground));
+  border-bottom-color: hsl(var(--primary));
+}
+
+/* balances tab */
+.balances-tab {
+  padding: 4px 14px 12px;
+  font-variant-numeric: tabular-nums;
+}
+.bal-head,
+.bal-row {
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 1fr;
+  gap: 8px;
+  padding: 7px 0;
+}
+.bal-head {
+  font-size: 11px;
+  color: hsl(var(--muted-foreground));
+  border-bottom: 1px solid hsl(var(--border));
+}
+.bal-row {
+  font-size: 13px;
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+.bal-asset {
+  font-weight: 700;
+}
+.bal-head span:not(:first-child),
+.bal-row span:not(:first-child) {
+  text-align: right;
+}
+
 /* layout grid: chart | book | trades */
 .grid {
   display: grid;
@@ -896,7 +1039,6 @@ select:focus-visible {
 
 /* open orders */
 .open-orders {
-  margin-top: 14px;
   padding-bottom: 8px;
 }
 .oo-table {

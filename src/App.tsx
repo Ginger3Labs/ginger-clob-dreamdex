@@ -8,6 +8,8 @@ import TradesFeed from './components/TradesFeed';
 import OrderTicket from './components/OrderTicket';
 import Vault from './components/Vault';
 import OpenOrders from './components/OpenOrders';
+import Balances from './components/Balances';
+import MarketList from './components/MarketList';
 import MarketHeader from './components/MarketHeader';
 import ConnectButton from './components/ConnectButton';
 
@@ -16,6 +18,8 @@ export default function App() {
   const [interval, setInterval] = useState<Interval>('1m');
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [price, setPrice] = useState('');
+  const [showMarkets, setShowMarkets] = useState(true);
+  const [bottomTab, setBottomTab] = useState<'orders' | 'balances'>('orders');
   const market = MARKETS[marketIdx];
 
   const book = useOrderbook(market);
@@ -74,25 +78,51 @@ export default function App() {
         right={<ConnectButton />}
       />
 
-      <div className="grid">
-        {/* Chart */}
-        <section className="panel chart-panel">
-          <div className="panel-title with-controls">
-            <span>Price · {market.pair}</span>
-            <div className="intervals">
-              {INTERVALS.map((iv) => (
-                <button key={iv} className={iv === interval ? 'active' : ''} onClick={() => setInterval(iv)}>
-                  {iv}
-                </button>
-              ))}
+      <div className={`terminal ${showMarkets ? '' : 'no-markets'}`}>
+        {/* Market list (collapsible) */}
+        <MarketList
+          marketIdx={marketIdx}
+          onSelect={setMarketIdx}
+          collapsed={!showMarkets}
+          onToggle={() => setShowMarkets((v) => !v)}
+        />
+
+        {/* Center: chart + bottom tabs */}
+        <div className="center-col">
+          <section className="panel chart-panel">
+            <div className="panel-title with-controls">
+              <span>Price · {market.pair}</span>
+              <div className="intervals">
+                {INTERVALS.map((iv) => (
+                  <button key={iv} className={iv === interval ? 'active' : ''} onClick={() => setInterval(iv)}>
+                    {iv}
+                  </button>
+                ))}
+              </div>
             </div>
+            {candlesLoading && candles.length === 0 ? (
+              <div className="chart placeholder">sampling mark price…</div>
+            ) : (
+              <Chart candles={candles} />
+            )}
+          </section>
+
+          <div className="bottom">
+            <div className="bottom-tabbar">
+              <button className={bottomTab === 'orders' ? 'active' : ''} onClick={() => setBottomTab('orders')}>
+                Open Orders
+              </button>
+              <button className={bottomTab === 'balances' ? 'active' : ''} onClick={() => setBottomTab('balances')}>
+                Balances
+              </button>
+            </div>
+            {bottomTab === 'orders' ? (
+              <OpenOrders market={market} info={book.info} priceDp={priceDp} />
+            ) : (
+              <section className="panel"><Balances market={market} info={book.info} /></section>
+            )}
           </div>
-          {candlesLoading && candles.length === 0 ? (
-            <div className="chart placeholder">sampling mark price…</div>
-          ) : (
-            <Chart candles={candles} />
-          )}
-        </section>
+        </div>
 
         {/* Order book + trades */}
         <div className="col">
@@ -120,8 +150,6 @@ export default function App() {
           <Vault market={market} info={book.info} />
         </div>
       </div>
-
-      <OpenOrders market={market} info={book.info} priceDp={priceDp} />
 
       <footer>
         pool {market.pool} · order book on-chain · trades from OrderFilled · candles from mark price · testnet 50312
