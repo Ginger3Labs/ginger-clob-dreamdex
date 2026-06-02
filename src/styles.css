@@ -56,8 +56,16 @@ body {
   padding: 0 20px;
 }
 .app.pro {
-  max-width: 1480px;
-  margin: 18px auto;
+  max-width: 100%;
+  height: 100vh;
+  margin: 0;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.app.pro > footer {
+  display: none;
 }
 
 /* market header */
@@ -71,7 +79,8 @@ body {
   border: 1px solid hsl(var(--border));
   border-radius: 12px;
   padding: 10px 16px;
-  margin-bottom: 14px;
+  margin-bottom: 0;
+  flex-shrink: 0;
 }
 .mh-left {
   display: flex;
@@ -121,21 +130,41 @@ body {
   display: grid;
   grid-template-columns: 210px minmax(0, 1fr) 300px 300px;
   gap: 12px;
-  align-items: start;
+  flex: 1;
+  min-height: 0;
 }
 .terminal.no-markets {
   grid-template-columns: 44px minmax(0, 1fr) 300px 300px;
+}
+.terminal > * {
+  min-height: 0;
 }
 .center-col {
   display: flex;
   flex-direction: column;
   gap: 12px;
   min-width: 0;
+  min-height: 0;
+}
+.chart-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
 @media (max-width: 1200px) {
+  .app.pro {
+    height: auto;
+  }
   .terminal,
   .terminal.no-markets {
     grid-template-columns: 1fr;
+  }
+  .chart {
+    min-height: 320px;
+  }
+  .bottom {
+    height: auto;
   }
 }
 
@@ -320,7 +349,8 @@ body {
 /* chart */
 .chart {
   width: 100%;
-  height: 380px;
+  flex: 1;
+  min-height: 180px;
 }
 .chart.placeholder {
   display: flex;
@@ -403,7 +433,35 @@ select:focus-visible {
 .col {
   display: flex;
   flex-direction: column;
-  gap: 14px;
+  gap: 12px;
+  min-height: 0;
+}
+.col > .trades {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+/* full-height terminal: center bottom panel + fills */
+.bottom {
+  height: 220px;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.bottom > .panel,
+.bottom .open-orders {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+}
+.market-list {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+.market-list .ml-rows {
+  overflow-y: auto;
 }
 
 /* connect button */
@@ -632,7 +690,8 @@ select:focus-visible {
   text-align: right;
 }
 .trades-body {
-  height: 240px;
+  flex: 1;
+  min-height: 80px;
   overflow-y: auto;
   padding-bottom: 6px;
 }
