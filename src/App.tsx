@@ -7,6 +7,7 @@ import Orderbook from './components/Orderbook';
 import TradesFeed from './components/TradesFeed';
 import OrderTicket from './components/OrderTicket';
 import Vault from './components/Vault';
+import OpenOrders from './components/OpenOrders';
 import MarketHeader from './components/MarketHeader';
 import ConnectButton from './components/ConnectButton';
 
@@ -119,6 +120,8 @@ export default function App() {
           <Vault market={market} info={book.info} />
         </div>
       </div>
+
+      <OpenOrders market={market} info={book.info} priceDp={priceDp} />
 
       <footer>
         pool {market.pool} · order book on-chain · trades from OrderFilled · candles from mark price · testnet 50312

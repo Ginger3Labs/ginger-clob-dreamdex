@@ -174,6 +174,51 @@ export const SPOT_POOL_ABI = [
     ],
     outputs: [{ type: 'uint256' }],
   },
+  {
+    type: 'function',
+    name: 'getOwnOpenOrders',
+    stateMutability: 'view',
+    inputs: [],
+    outputs: [{ type: 'uint128[]' }],
+  },
+  {
+    type: 'function',
+    name: 'getOrder',
+    stateMutability: 'view',
+    inputs: [{ name: 'orderId', type: 'uint128' }],
+    outputs: [
+      {
+        type: 'tuple',
+        components: [
+          { name: 'orderId', type: 'uint128' },
+          { name: 'isBid', type: 'bool' },
+          { name: 'owner', type: 'address' },
+          { name: 'userData', type: 'uint64' },
+          { name: 'price', type: 'uint256' },
+          { name: 'fullQuantity', type: 'uint256' },
+          { name: 'quantityRemaining', type: 'uint256' },
+          { name: 'expireTimestampNs', type: 'uint64' },
+        ],
+      },
+    ],
+  },
+  {
+    type: 'function',
+    name: 'cancelOrder',
+    stateMutability: 'nonpayable',
+    inputs: [{ name: 'orderId', type: 'uint128' }],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'reduceOrder',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'orderId', type: 'uint128' },
+      { name: 'newQuantityRemaining', type: 'uint256' },
+    ],
+    outputs: [],
+  },
 ] as const;
 
 // Order type codes. Wallet funding ⇒ IOC/FOK only. Vault ⇒ all four.

@@ -825,6 +825,55 @@ select:focus-visible {
   text-decoration: none;
 }
 
+/* open orders */
+.open-orders {
+  margin-top: 14px;
+  padding-bottom: 8px;
+}
+.oo-table {
+  font-size: 13px;
+}
+.oo-head,
+.oo-row {
+  display: grid;
+  grid-template-columns: 70px 1.2fr 1.6fr 80px 90px;
+  gap: 8px;
+  align-items: center;
+  padding: 7px 14px;
+  font-variant-numeric: tabular-nums;
+}
+.oo-head {
+  color: hsl(var(--muted-foreground));
+  font-size: 11px;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.oo-row {
+  border-bottom: 1px solid hsl(var(--border) / 0.5);
+}
+.oo-row .buy {
+  color: hsl(var(--bid));
+  font-weight: 700;
+}
+.oo-row .sell {
+  color: hsl(var(--ask));
+  font-weight: 700;
+}
+.oo-row .cancel {
+  background: hsl(var(--ask) / 0.14);
+  border: 1px solid hsl(var(--ask) / 0.5);
+  color: hsl(var(--ask));
+  border-radius: 6px;
+  padding: 4px 8px;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+.oo-row .cancel:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 footer {
   color: hsl(var(--muted-foreground));
   font-size: 10px;
