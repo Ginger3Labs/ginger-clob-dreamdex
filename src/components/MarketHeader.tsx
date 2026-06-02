@@ -17,7 +17,6 @@ function Stat({ label, value, cls }: { label: string; value: ReactNode; cls?: st
 export default function MarketHeader({
   markets,
   marketIdx,
-  onSelect,
   priceDp,
   last,
   lastDir,
@@ -30,7 +29,6 @@ export default function MarketHeader({
 }: {
   markets: Market[];
   marketIdx: number;
-  onSelect: (i: number) => void;
   priceDp: number;
   last?: number;
   lastDir?: 'up' | 'down' | 'flat';
@@ -49,13 +47,7 @@ export default function MarketHeader({
           <span className="brand-gradient-text">Somnia Exchange</span>
           <span className="tag">Pro</span>
         </div>
-        <select value={marketIdx} onChange={(e) => onSelect(Number(e.target.value))}>
-          {markets.map((m, i) => (
-            <option value={i} key={m.pool}>
-              {m.pair}
-            </option>
-          ))}
-        </select>
+        <span className="mh-pair">{markets[marketIdx]?.pair}</span>
       </div>
 
       <div className="mh-stats">

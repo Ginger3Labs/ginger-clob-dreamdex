@@ -66,7 +66,6 @@ export default function App() {
       <MarketHeader
         markets={MARKETS}
         marketIdx={marketIdx}
-        onSelect={setMarketIdx}
         priceDp={priceDp}
         last={lastTick ? Number(lastTick.price) : book.markPrice ?? mid}
         lastDir={lastTick?.dir}

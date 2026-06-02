@@ -93,8 +93,11 @@ body {
   letter-spacing: -0.3px;
   white-space: nowrap;
 }
-.mh-left select {
+.mh-pair {
   margin-left: 6px;
+  font-size: 15px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
 }
 .mh-stats {
   display: flex;
