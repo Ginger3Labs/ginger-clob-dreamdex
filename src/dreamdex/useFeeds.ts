@@ -48,6 +48,62 @@ export type Fill = {
 const ORDER_FILLED = parseAbiItem(
   'event OrderFilled(uint128 indexed takerOrderId, uint128 indexed makerOrderId, uint256 quantityFilled, uint256 takerRemainingQuantity, uint256 makerRemainingQuantity)',
 );
+const MARK_PRICE_UPDATED = parseAbiItem(
+  'event MarkPriceUpdated(address indexed asset, uint256 markPrice, uint256 rawMidpoint)',
+);
+
+// testnet getLogs is capped (~500 blocks); blocks are ~0.1s. Backfill recent
+// history in chunks so the chart has real data on load (no empty "fly").
+const BACKFILL_CHUNK = 450n;
+const BACKFILL_CHUNKS = 14; // ~6300 blocks ≈ ~10 min of history
+const BLOCK_MS = 100;
+
+async function backfillCandles(
+  pool: `0x${string}`,
+  step: number,
+  quoteDecimals: number,
+): Promise<Map<number, Candle>> {
+  const buckets = new Map<number, Candle>();
+  let latest: bigint;
+  try {
+    latest = await publicClient.getBlockNumber();
+  } catch {
+    return buckets;
+  }
+  const ranges: Array<[bigint, bigint]> = [];
+  for (let i = 0; i < BACKFILL_CHUNKS; i++) {
+    const to = latest - BigInt(i) * BACKFILL_CHUNK;
+    const from = to - BACKFILL_CHUNK + 1n;
+    if (from < 0n) break;
+    ranges.push([from, to]);
+  }
+  const chunks = await Promise.all(
+    ranges.map(([from, to]) =>
+      publicClient
+        .getLogs({ address: pool, event: MARK_PRICE_UPDATED, fromBlock: from, toBlock: to })
+        .catch(() => [] as any[]),
+    ),
+  );
+  const logs = chunks.flat();
+  logs.sort((a: any, b: any) => Number(a.blockNumber - b.blockNumber));
+  const nowMs = Date.now();
+  for (const log of logs as any[]) {
+    const price = Number(formatUnits(log.args.markPrice as bigint, quoteDecimals));
+    if (!(price > 0)) continue;
+    const ts0 = nowMs - Number(latest - (log.blockNumber as bigint)) * BLOCK_MS;
+    const ts = Math.floor(ts0 / step) * step;
+    const e = buckets.get(ts);
+    if (!e) {
+      const ps = String(price);
+      buckets.set(ts, { timestamp: ts, open: ps, high: ps, low: ps, close: ps, volume: '0' });
+    } else {
+      e.high = String(Math.max(Number(e.high), price));
+      e.low = String(Math.min(Number(e.low), price));
+      e.close = String(price);
+    }
+  }
+  return buckets;
+}
 
 async function readMark(pool: `0x${string}`, quoteDecimals: number): Promise<number | null> {
   try {
@@ -74,16 +130,6 @@ async function readMark(pool: `0x${string}`, quoteDecimals: number): Promise<num
   return null;
 }
 
-async function poolDecimals(pool: `0x${string}`) {
-  const p = (await publicClient.readContract({
-    address: pool,
-    abi: SPOT_POOL_ABI,
-    functionName: 'getPoolParams',
-  })) as readonly [string, string, bigint, bigint, bigint, bigint, bigint];
-  // base decimals are not on getPoolParams; infer from token map upstream.
-  return { quoteDecimals: 18, baseAddr: p[0], quoteAddr: p[1] };
-}
-
 /** Live candles sampled from the EMA mark price, bucketed by interval. */
 export function useCandles(market: Market, interval: Interval) {
   const [candles, setCandles] = useState<Candle[]>([]);
@@ -95,32 +141,45 @@ export function useCandles(market: Market, interval: Interval) {
     const buckets = new Map<number, Candle>();
     const step = INTERVAL_MS[interval];
 
-    async function tick() {
-      const { quoteDecimals } = await poolDecimals(market.pool).catch(() => ({
-        quoteDecimals: 18,
-      }));
-      const price = await readMark(market.pool, quoteDecimals);
-      if (!cancelled && price != null) {
-        const now = Date.now();
-        const ts = Math.floor(now / step) * step;
-        const existing = buckets.get(ts);
-        if (!existing) {
-          const ps = String(price);
-          buckets.set(ts, { timestamp: ts, open: ps, high: ps, low: ps, close: ps, volume: '0' });
-        } else {
-          existing.high = String(Math.max(Number(existing.high), price));
-          existing.low = String(Math.min(Number(existing.low), price));
-          existing.close = String(price);
+    const emit = () => {
+      const list = Array.from(buckets.values())
+        .sort((a, b) => a.timestamp - b.timestamp)
+        .slice(-500);
+      setCandles(list);
+      setLoading(false);
+    };
+
+    function tick() {
+      timer = setTimeout(async () => {
+        const price = await readMark(market.pool, 18);
+        if (!cancelled && price != null) {
+          const ts = Math.floor(Date.now() / step) * step;
+          const existing = buckets.get(ts);
+          if (!existing) {
+            const ps = String(price);
+            buckets.set(ts, { timestamp: ts, open: ps, high: ps, low: ps, close: ps, volume: '0' });
+          } else {
+            existing.high = String(Math.max(Number(existing.high), price));
+            existing.low = String(Math.min(Number(existing.low), price));
+            existing.close = String(price);
+          }
+          emit();
         }
-        setCandles(Array.from(buckets.values()).sort((a, b) => a.timestamp - b.timestamp));
-        setLoading(false);
-      }
-      if (!cancelled) timer = setTimeout(tick, MARK_POLL_MS);
+        if (!cancelled) tick();
+      }, MARK_POLL_MS);
     }
 
+    // Backfill recent on-chain history first, then sample live.
     setLoading(true);
     setCandles([]);
-    tick();
+    (async () => {
+      const seeded = await backfillCandles(market.pool, step, 18);
+      if (cancelled) return;
+      for (const [k, v] of seeded) buckets.set(k, v);
+      if (buckets.size > 0) emit();
+      tick();
+    })();
+
     return () => {
       cancelled = true;
       clearTimeout(timer);

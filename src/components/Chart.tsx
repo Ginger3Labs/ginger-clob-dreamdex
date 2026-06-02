@@ -12,6 +12,7 @@ export default function Chart({ candles }: { candles: Candle[] }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const seriesRef = useRef<ISeriesApi<'Candlestick'> | null>(null);
+  const sigRef = useRef<{ len: number; first?: number; last?: number }>({ len: 0 });
 
   // Create chart once.
   useEffect(() => {
@@ -57,7 +58,8 @@ export default function Chart({ candles }: { candles: Candle[] }) {
     };
   }, []);
 
-  // Push data on update.
+  // Push data on update. Use update() for the live candle to avoid refit jumps;
+  // only setData (which refits) when the series of candles actually changed.
   useEffect(() => {
     const series = seriesRef.current;
     if (!series || candles.length === 0) return;
@@ -70,7 +72,15 @@ export default function Chart({ candles }: { candles: Candle[] }) {
       close: Number(c.close),
     }));
 
-    series.setData(data);
+    const first = Number(data[0].time);
+    const last = Number(data[data.length - 1].time);
+    const sig = sigRef.current;
+    if (sig.len === data.length && sig.first === first && sig.last === last) {
+      series.update(data[data.length - 1]);
+    } else {
+      series.setData(data);
+    }
+    sigRef.current = { len: data.length, first, last };
   }, [candles]);
 
   return <div className="chart" ref={containerRef} />;
