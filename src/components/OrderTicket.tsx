@@ -117,12 +117,15 @@ export default function OrderTicket({
     if (!info || !calc || !address) return;
     setError(undefined);
     setOkMsg(undefined);
+    // The deployed contract treats expireTimestampNs = 0 as already-expired and
+    // silently rejects (success=false, 0 fill). Always pass a future ns timestamp.
+    const expireNs = BigInt(Math.floor(Date.now() / 1000) + 3600) * 1_000_000_000n;
     const args = [
       side === 'buy',
       0n,
       calc.priceRaw,
       calc.quantityRaw,
-      0n,
+      expireNs,
       ORDER_TYPE[tif],
       0,
       zeroAddress,
