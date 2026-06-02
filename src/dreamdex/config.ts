@@ -116,10 +116,68 @@ export const SPOT_POOL_ABI = [
       { name: 'orderId', type: 'uint128' },
     ],
   },
+  {
+    // Vault-funded order (supports all types incl. GTC=0 / PostOnly=3 resting).
+    type: 'function',
+    name: 'placeOrder',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'isBid', type: 'bool' },
+      { name: 'userData', type: 'uint64' },
+      { name: 'price', type: 'uint256' },
+      { name: 'quantity', type: 'uint256' },
+      { name: 'expireTimestampNs', type: 'uint64' },
+      { name: 'orderType', type: 'uint8' },
+      { name: 'selfMatchingOption', type: 'uint8' },
+      { name: 'builder', type: 'address' },
+      { name: 'builderFeeBpsTimes1k', type: 'uint96' },
+    ],
+    outputs: [
+      { name: 'success', type: 'bool' },
+      { name: 'orderId', type: 'uint128' },
+    ],
+  },
+  {
+    type: 'function',
+    name: 'deposit',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'depositNative',
+    stateMutability: 'payable',
+    inputs: [],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'withdraw',
+    stateMutability: 'nonpayable',
+    inputs: [
+      { name: 'token', type: 'address' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+  {
+    type: 'function',
+    name: 'getWithdrawableBalance',
+    stateMutability: 'view',
+    inputs: [
+      { name: 'owner', type: 'address' },
+      { name: 'token', type: 'address' },
+    ],
+    outputs: [{ type: 'uint256' }],
+  },
 ] as const;
 
-// Order type codes for placeTakerOrderWithoutVault (wallet funding ⇒ IOC/FOK only)
-export const ORDER_TYPE = { FOK: 1, IOC: 2 } as const;
+// Order type codes. Wallet funding ⇒ IOC/FOK only. Vault ⇒ all four.
+export const ORDER_TYPE = { GTC: 0, FOK: 1, IOC: 2, POST_ONLY: 3 } as const;
 
 export const ERC20_ABI = [
   {

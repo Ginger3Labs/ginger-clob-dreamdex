@@ -17,17 +17,23 @@ import {
   type Market,
 } from '../dreamdex/config';
 import type { PoolInfo } from '../dreamdex/useOrderbook';
+import { useVault } from '../dreamdex/useVault';
 
 type Side = 'buy' | 'sell';
-type OType = 'market' | 'limit';
+type Funding = 'wallet' | 'vault';
+type WalletType = 'market' | 'limit';
 type Tif = 'IOC' | 'FOK';
+type VaultType = 'GTC' | 'POST_ONLY' | 'IOC' | 'FOK';
 
-const MARKET_SLIPPAGE = 0.01; // 1% aggressive price for market orders
+const MARKET_SLIPPAGE = 0.01;
+const HOUR_NS = 3600;
+const MONTH_NS = 30 * 24 * 3600;
 
-function num(s: string | undefined) {
+const num = (s: string | undefined) => {
   const n = Number(s);
   return Number.isFinite(n) ? n : 0;
-}
+};
+const fmtN = (n: number, dp: number) => n.toLocaleString('en-US', { maximumFractionDigits: dp });
 
 export default function OrderTicket({
   market,
@@ -49,8 +55,10 @@ export default function OrderTicket({
   setPrice: (p: string) => void;
 }) {
   const { address, isConnected, chainId } = useAccount();
-  const [otype, setOtype] = useState<OType>('market');
+  const [funding, setFunding] = useState<Funding>('wallet');
+  const [wtype, setWtype] = useState<WalletType>('market');
   const [tif, setTif] = useState<Tif>('IOC');
+  const [vtype, setVtype] = useState<VaultType>('GTC');
   const [amount, setAmount] = useState('');
   const [error, setError] = useState<string>();
   const [okMsg, setOkMsg] = useState<string>();
@@ -58,6 +66,7 @@ export default function OrderTicket({
 
   const { writeContractAsync, isPending } = useWriteContract();
   const { isLoading: confirming, isSuccess: confirmed } = useWaitForTransactionReceipt({ hash });
+  const vault = useVault(market, info);
 
   const onChain = chainId === somniaTestnet.id;
   const enabled = !!address && onChain && !!info;
@@ -65,44 +74,39 @@ export default function OrderTicket({
   const inputToken = info ? (side === 'buy' ? info.quote : info.base) : undefined;
   const isNativeInput = inputToken?.address.toLowerCase() === NATIVE_TOKEN.toLowerCase();
 
-  // Clicking the book fills a price → jump to limit mode.
-  useEffect(() => {
-    if (price) setOtype('limit');
-  }, [price]);
+  // market price only applies to wallet-funded market orders; everything else is limit-priced
+  const isLimitPriced = funding === 'vault' || wtype === 'limit';
 
-  // --- Balances ---
+  useEffect(() => {
+    if (price && funding === 'wallet') setWtype('limit');
+  }, [price, funding]);
+
+  // --- Wallet balances ---
   const { data: nativeBal } = useBalance({
-    address,
-    chainId: somniaTestnet.id,
+    address, chainId: somniaTestnet.id,
     query: { enabled: enabled && isNativeBase, refetchInterval: 10_000 },
   });
   const { data: baseErc20 } = useReadContract({
-    address: info?.base.address,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
+    address: info?.base.address, abi: ERC20_ABI, functionName: 'balanceOf',
     args: address ? [address] : undefined,
     query: { enabled: enabled && !isNativeBase, refetchInterval: 10_000 },
   });
   const { data: quoteErc20 } = useReadContract({
-    address: info?.quote.address,
-    abi: ERC20_ABI,
-    functionName: 'balanceOf',
+    address: info?.quote.address, abi: ERC20_ABI, functionName: 'balanceOf',
     args: address ? [address] : undefined,
     query: { enabled, refetchInterval: 10_000 },
   });
+  const walletBase = info ? Number(formatUnits((isNativeBase ? nativeBal?.value : (baseErc20 as bigint)) ?? 0n, info.base.decimals)) : 0;
+  const walletQuote = info ? Number(formatUnits((quoteErc20 as bigint) ?? 0n, info.quote.decimals)) : 0;
 
-  const baseBalNum = info
-    ? Number(formatUnits((isNativeBase ? nativeBal?.value : (baseErc20 as bigint)) ?? 0n, info.base.decimals))
-    : 0;
-  const quoteBalNum = info
-    ? Number(formatUnits((quoteErc20 as bigint) ?? 0n, info.quote.decimals))
-    : 0;
+  const availBase = funding === 'vault' ? vault.baseNum : walletBase;
+  const availQuote = funding === 'vault' ? vault.quoteNum : walletQuote;
 
-  // --- Price (market = aggressive tick-aligned, limit = user) ---
+  // --- Price ---
   const { priceNum, priceRaw } = useMemo(() => {
     if (!info) return { priceNum: 0, priceRaw: 0n };
     const tickNum = num(info.tickSize);
-    if (otype === 'market') {
+    if (!isLimitPriced) {
       const ref = side === 'buy' ? bestAsk : bestBid;
       if (!ref || tickNum <= 0) return { priceNum: 0, priceRaw: 0n };
       const adj = side === 'buy' ? ref * (1 + MARKET_SLIPPAGE) : ref * (1 - MARKET_SLIPPAGE);
@@ -114,51 +118,44 @@ export default function OrderTicket({
     } catch {
       return { priceNum: num(price), priceRaw: 0n };
     }
-  }, [info, otype, side, price, bestBid, bestAsk]);
+  }, [info, isLimitPriced, side, price, bestBid, bestAsk]);
 
-  // --- Order calc + validation ---
+  // --- Calc + validation ---
   const calc = useMemo(() => {
     if (!info || !amount || priceRaw <= 0n) return undefined;
     try {
       const quantityRaw = parseUnits(amount, info.base.decimals);
       if (quantityRaw <= 0n) return undefined;
       const errs: string[] = [];
-      if (quantityRaw % info.lotRaw !== 0n) errs.push(`amount step is ${info.lotSize}`);
+      if (quantityRaw % info.lotRaw !== 0n) errs.push(`amount step ${info.lotSize}`);
       if (quantityRaw < info.minQtyRaw) errs.push(`min amount ${info.minQty}`);
-      if (otype === 'limit' && priceRaw % info.tickRaw !== 0n) errs.push(`price step is ${info.tickSize}`);
+      if (isLimitPriced && priceRaw % info.tickRaw !== 0n) errs.push(`price step ${info.tickSize}`);
       const costRaw = (priceRaw * quantityRaw) / 10n ** BigInt(info.base.decimals);
-      const needed = side === 'buy' ? costRaw : quantityRaw;
       const costNum = Number(formatUnits(costRaw, info.quote.decimals));
-      // balance check
-      if (side === 'buy' && costNum > quoteBalNum) errs.push('insufficient USDso');
-      if (side === 'sell' && num(amount) > baseBalNum) errs.push(`insufficient ${info.base.symbol}`);
-      return { quantityRaw, priceRaw, costRaw, costNum, needed, errs };
+      const needed = side === 'buy' ? costRaw : quantityRaw;
+      if (side === 'buy' && costNum > availQuote) errs.push(`insufficient ${info.quote.symbol}`);
+      if (side === 'sell' && num(amount) > availBase) errs.push(`insufficient ${info.base.symbol}`);
+      return { quantityRaw, costRaw, costNum, needed, errs };
     } catch {
       return undefined;
     }
-  }, [amount, priceRaw, side, otype, info, quoteBalNum, baseBalNum]);
+  }, [amount, priceRaw, side, isLimitPriced, info, availQuote, availBase]);
 
-  // --- Allowance ---
+  // --- Allowance (wallet-funded ERC-20 only) ---
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    address: inputToken?.address,
-    abi: ERC20_ABI,
-    functionName: 'allowance',
+    address: inputToken?.address, abi: ERC20_ABI, functionName: 'allowance',
     args: address ? [address, market.pool] : undefined,
-    query: { enabled: enabled && !isNativeInput },
+    query: { enabled: enabled && funding === 'wallet' && !isNativeInput },
   });
   const needsApproval =
-    !isNativeInput &&
-    !!calc &&
-    calc.errs.length === 0 &&
+    funding === 'wallet' && !isNativeInput && !!calc && calc.errs.length === 0 &&
     (allowance === undefined || (allowance as bigint) < calc.needed);
 
-  // --- Helpers ---
-  const maxBase = side === 'sell' ? baseBalNum : priceNum > 0 ? quoteBalNum / priceNum : 0;
+  const maxBase = side === 'sell' ? availBase : priceNum > 0 ? availQuote / priceNum : 0;
   function setPct(pct: number) {
     if (!info) return;
     const lot = num(info.lotSize) || 1e-8;
-    const raw = (maxBase * pct) / 100;
-    const amt = Math.floor(raw / lot) * lot;
+    const amt = Math.floor(((maxBase * pct) / 100) / lot) * lot;
     setAmount(amt > 0 ? String(Number(amt.toFixed(8))) : '');
   }
 
@@ -167,8 +164,7 @@ export default function OrderTicket({
     setError(undefined); setOkMsg(undefined);
     try {
       const h = await writeContractAsync({
-        address: inputToken.address, abi: ERC20_ABI, functionName: 'approve',
-        args: [market.pool, maxUint256],
+        address: inputToken.address, abi: ERC20_ABI, functionName: 'approve', args: [market.pool, maxUint256],
       });
       setHash(h);
       await publicClient.waitForTransactionReceipt({ hash: h });
@@ -182,36 +178,48 @@ export default function OrderTicket({
   async function handlePlace() {
     if (!info || !calc || !address) return;
     setError(undefined); setOkMsg(undefined);
-    const expireNs = BigInt(Math.floor(Date.now() / 1000) + 3600) * 1_000_000_000n;
-    const ot = otype === 'market' ? ORDER_TYPE.IOC : ORDER_TYPE[tif];
-    const args = [side === 'buy', 0n, calc.priceRaw, calc.quantityRaw, expireNs, ot, 0, zeroAddress, 0n] as const;
-    const value = isNativeInput ? calc.quantityRaw : 0n;
+
+    let ot: number;
+    let ttl: number;
+    if (funding === 'wallet') {
+      ot = wtype === 'market' ? ORDER_TYPE.IOC : ORDER_TYPE[tif];
+      ttl = HOUR_NS;
+    } else {
+      ot = ORDER_TYPE[vtype];
+      ttl = vtype === 'GTC' || vtype === 'POST_ONLY' ? MONTH_NS : HOUR_NS;
+    }
+    const expireNs = BigInt(Math.floor(Date.now() / 1000) + ttl) * 1_000_000_000n;
+    const args = [side === 'buy', 0n, priceRaw, calc.quantityRaw, expireNs, ot, 0, zeroAddress, 0n] as const;
+    const base = { address: market.pool, abi: SPOT_POOL_ABI, args } as const;
+
     try {
-      await publicClient.simulateContract({
-        account: address, address: market.pool, abi: SPOT_POOL_ABI,
-        functionName: 'placeTakerOrderWithoutVault', args, value,
-      });
-      const h = await writeContractAsync({
-        address: market.pool, abi: SPOT_POOL_ABI,
-        functionName: 'placeTakerOrderWithoutVault', args, value,
-      });
+      let h: `0x${string}`;
+      if (funding === 'wallet') {
+        const value = isNativeInput ? calc.quantityRaw : 0n;
+        await publicClient.simulateContract({ account: address, ...base, functionName: 'placeTakerOrderWithoutVault', value });
+        h = await writeContractAsync({ ...base, functionName: 'placeTakerOrderWithoutVault', value });
+      } else {
+        await publicClient.simulateContract({ account: address, ...base, functionName: 'placeOrder' });
+        h = await writeContractAsync({ ...base, functionName: 'placeOrder' });
+      }
       setHash(h);
-      setOkMsg('Order submitted');
+      setOkMsg(funding === 'vault' && (vtype === 'GTC' || vtype === 'POST_ONLY') ? 'Limit order placed (resting)' : 'Order submitted');
       setAmount('');
+      vault.refetch();
     } catch (e: any) {
       setError(e?.shortMessage ?? e?.message ?? String(e));
     }
   }
 
   const disabled = !calc || calc.errs.length > 0 || isPending || confirming;
-  const dp = info ? Math.max(num(info.tickSize) < 1 ? (info.tickSize.split('.')[1]?.length ?? 2) : 2, 2) : 2;
+  const dp = info ? Math.max(info.tickSize.split('.')[1]?.length ?? 2, 2) : 2;
 
   return (
     <section className="panel ticket">
-      <div className="seg otype">
-        {(['market', 'limit'] as OType[]).map((t) => (
-          <button key={t} className={otype === t ? 'active' : ''} onClick={() => setOtype(t)}>
-            {t === 'market' ? 'Market' : 'Limit'}
+      <div className="seg funding">
+        {(['wallet', 'vault'] as Funding[]).map((f) => (
+          <button key={f} className={funding === f ? 'active' : ''} onClick={() => setFunding(f)}>
+            {f === 'wallet' ? 'Wallet' : 'Vault'}
           </button>
         ))}
       </div>
@@ -221,19 +229,35 @@ export default function OrderTicket({
         <button className={side === 'sell' ? 'active sell' : ''} onClick={() => setSide('sell')}>Sell</button>
       </div>
 
-      {otype === 'limit' ? (
+      {/* order type */}
+      {funding === 'wallet' ? (
+        <div className="seg otype">
+          {(['market', 'limit'] as WalletType[]).map((t) => (
+            <button key={t} className={wtype === t ? 'active' : ''} onClick={() => setWtype(t)}>
+              {t === 'market' ? 'Market' : 'Limit'}
+            </button>
+          ))}
+        </div>
+      ) : (
+        <div className="seg vtype">
+          {(['GTC', 'POST_ONLY', 'IOC', 'FOK'] as VaultType[]).map((t) => (
+            <button key={t} className={vtype === t ? 'active' : ''} onClick={() => setVtype(t)}>
+              {t === 'POST_ONLY' ? 'Post' : t}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {isLimitPriced ? (
         <label className="field">
           <span>Price ({info?.quote.symbol ?? 'quote'})</span>
-          <input
-            inputMode="decimal" placeholder={info?.tickSize ?? '0.00'}
-            value={price} onChange={(e) => setPrice(e.target.value.trim())}
-          />
+          <input inputMode="decimal" placeholder={info?.tickSize ?? '0.00'} value={price} onChange={(e) => setPrice(e.target.value.trim())} />
         </label>
       ) : (
         <div className="field">
           <span>Price</span>
           <div className="market-px">
-            Market · ~{priceNum > 0 ? priceNum.toLocaleString('en-US', { maximumFractionDigits: dp }) : '—'} {info?.quote.symbol}
+            Market · ~{priceNum > 0 ? fmtN(priceNum, dp) : '—'} {info?.quote.symbol}
             <em> ({(MARKET_SLIPPAGE * 100).toFixed(0)}% slippage)</em>
           </div>
         </div>
@@ -244,24 +268,17 @@ export default function OrderTicket({
           Amount ({info?.base.symbol ?? 'base'})
           <button className="link-max" onClick={() => setPct(100)} type="button">Max</button>
         </span>
-        <input
-          inputMode="decimal" placeholder={info?.minQty ?? '0.00'}
-          value={amount} onChange={(e) => setAmount(e.target.value.trim())}
-        />
+        <input inputMode="decimal" placeholder={info?.minQty ?? '0.00'} value={amount} onChange={(e) => setAmount(e.target.value.trim())} />
       </label>
 
-      <input
-        className="slider" type="range" min={0} max={100} step={1}
+      <input className="slider" type="range" min={0} max={100} step={1}
         value={maxBase > 0 ? Math.min(100, (num(amount) / maxBase) * 100) : 0}
-        onChange={(e) => setPct(Number(e.target.value))}
-      />
+        onChange={(e) => setPct(Number(e.target.value))} />
       <div className="pcts">
-        {[25, 50, 75, 100].map((p) => (
-          <button key={p} onClick={() => setPct(p)}>{p}%</button>
-        ))}
+        {[25, 50, 75, 100].map((p) => <button key={p} onClick={() => setPct(p)}>{p}%</button>)}
       </div>
 
-      {otype === 'limit' && (
+      {funding === 'wallet' && wtype === 'limit' && (
         <div className="seg tif">
           {(['IOC', 'FOK'] as Tif[]).map((t) => (
             <button key={t} className={tif === t ? 'active' : ''} onClick={() => setTif(t)}>{t}</button>
@@ -270,15 +287,15 @@ export default function OrderTicket({
       )}
 
       <div className="balances">
-        <span>Avail</span>
-        <span>{baseBalNum.toLocaleString('en-US', { maximumFractionDigits: 4 })} {info?.base.symbol}</span>
-        <span>{quoteBalNum.toLocaleString('en-US', { maximumFractionDigits: 2 })} {info?.quote.symbol}</span>
+        <span>Avail · {funding}</span>
+        <span>{fmtN(availBase, 4)} {info?.base.symbol}</span>
+        <span>{fmtN(availQuote, 2)} {info?.quote.symbol}</span>
       </div>
 
       {calc && (
         <div className="cost">
           {side === 'buy' ? 'Pay ≈' : 'Receive ≈'}{' '}
-          <b>{calc.costNum.toLocaleString('en-US', { maximumFractionDigits: 4 })} {info?.quote.symbol}</b>
+          <b>{fmtN(calc.costNum, 4)} {info?.quote.symbol}</b>
           <span className="fee"> · fee 0%</span>
         </div>
       )}
@@ -297,6 +314,10 @@ export default function OrderTicket({
         <button className={`btn-place ${side}`} disabled={disabled} onClick={handlePlace}>
           {isPending || confirming ? 'Submitting…' : `${side === 'buy' ? 'Buy' : 'Sell'} ${info?.base.symbol ?? ''}`}
         </button>
+      )}
+
+      {funding === 'vault' && (
+        <div className="hint center small">Vault funding enables resting GTC / Post-Only orders.</div>
       )}
 
       {error && <div className="msg err">⚠ {error}</div>}

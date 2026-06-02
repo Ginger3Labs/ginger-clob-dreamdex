@@ -568,10 +568,18 @@ select:focus-visible {
   border-color: hsl(var(--ask));
   color: hsl(var(--ask));
 }
-.seg.tif button.active {
+.seg.tif button.active,
+.seg.otype button.active,
+.seg.vtype button.active,
+.seg.funding button.active,
+.seg.token button.active {
   background: hsl(var(--primary) / 0.18);
   border-color: hsl(var(--primary));
   color: hsl(var(--foreground));
+}
+.seg.vtype button {
+  font-size: 11px;
+  padding: 7px 4px;
 }
 .field {
   display: block;
@@ -698,6 +706,83 @@ select:focus-visible {
   text-align: center;
   color: hsl(var(--muted-foreground));
   padding: 6px 0;
+}
+.hint.small {
+  font-size: 10px;
+  padding: 8px 0 0;
+}
+
+/* vault panel */
+.vault {
+  padding: 12px 14px 14px;
+}
+.vault .panel-title {
+  padding: 0 0 10px;
+}
+.vault-bals {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+.vault-bals > div {
+  flex: 1;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+}
+.vault-bals span {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+.vault-bals b {
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+.vault-amt {
+  width: 100%;
+  background: hsl(var(--background));
+  border: 1px solid hsl(var(--border));
+  border-radius: 8px;
+  padding: 9px 12px;
+  color: hsl(var(--foreground));
+  font-family: inherit;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  margin-bottom: 8px;
+}
+.vault-amt:focus-visible {
+  outline: none;
+  border-color: hsl(var(--primary));
+}
+.vault-actions {
+  display: flex;
+  gap: 8px;
+}
+.vault-actions button {
+  flex: 1;
+  border: none;
+  border-radius: 8px;
+  padding: 10px;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: #fff;
+  background: hsl(var(--primary));
+  cursor: pointer;
+}
+.vault-actions button.ghost {
+  background: hsl(var(--card));
+  border: 1px solid hsl(var(--border));
+  color: hsl(var(--foreground));
+}
+.vault-actions button:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 .btn-place {
   width: 100%;

@@ -6,6 +6,7 @@ import Chart from './components/Chart';
 import Orderbook from './components/Orderbook';
 import TradesFeed from './components/TradesFeed';
 import OrderTicket from './components/OrderTicket';
+import Vault from './components/Vault';
 import MarketHeader from './components/MarketHeader';
 import ConnectButton from './components/ConnectButton';
 
@@ -103,17 +104,20 @@ export default function App() {
           />
         </div>
 
-        {/* Order ticket */}
-        <OrderTicket
-          market={market}
-          info={book.info}
-          bestBid={bestBid}
-          bestAsk={bestAsk}
-          side={side}
-          setSide={setSide}
-          price={price}
-          setPrice={setPrice}
-        />
+        {/* Order ticket + vault */}
+        <div className="col">
+          <OrderTicket
+            market={market}
+            info={book.info}
+            bestBid={bestBid}
+            bestAsk={bestAsk}
+            side={side}
+            setSide={setSide}
+            price={price}
+            setPrice={setPrice}
+          />
+          <Vault market={market} info={book.info} />
+        </div>
       </div>
 
       <footer>
