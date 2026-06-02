@@ -18,6 +18,7 @@ import {
 } from '../dreamdex/config';
 import type { PoolInfo } from '../dreamdex/useOrderbook';
 import { useVault } from '../dreamdex/useVault';
+import Help from './Help';
 
 type Side = 'buy' | 'sell';
 type Funding = 'wallet' | 'vault';
@@ -214,8 +215,34 @@ export default function OrderTicket({
   const disabled = !calc || calc.errs.length > 0 || isPending || confirming;
   const dp = info ? Math.max(info.tickSize.split('.')[1]?.length ?? 2, 2) : 2;
 
+  const typeDesc =
+    funding === 'wallet'
+      ? wtype === 'market'
+        ? 'Market — fills now at the best price (aggressive IOC).'
+        : tif === 'IOC'
+          ? 'Limit IOC — fills what it can at your price now, cancels the rest.'
+          : 'Limit FOK — fills the full amount at your price, or nothing.'
+      : vtype === 'GTC'
+        ? 'GTC — rests on the book until filled or cancelled.'
+        : vtype === 'POST_ONLY'
+          ? 'Post-Only — joins as maker; rejected if it would fill immediately.'
+          : vtype === 'IOC'
+            ? 'IOC — fills what it can now, cancels the rest.'
+            : 'FOK — fills the full amount at once, or nothing.';
+
   return (
     <section className="panel ticket">
+      <div className="seg-label">
+        Funding
+        <Help>
+          <b>Wallet</b> — funds pulled from your wallet at execution. Instant orders only
+          (Market / IOC / FOK); cannot rest on the book.
+          <br />
+          <br />
+          <b>Vault</b> — pre-deposit tokens into the on-chain vault. Required for resting
+          limit orders (GTC / Post-Only).
+        </Help>
+      </div>
       <div className="seg funding">
         {(['wallet', 'vault'] as Funding[]).map((f) => (
           <button key={f} className={funding === f ? 'active' : ''} onClick={() => setFunding(f)}>
@@ -230,6 +257,22 @@ export default function OrderTicket({
       </div>
 
       {/* order type */}
+      <div className="seg-label">
+        Order type
+        <Help>
+          <b>Market</b> — buy/sell now at the best price.
+          <br />
+          <b>Limit</b> — only at your price or better.
+          <br />
+          <b>GTC</b> — rests on the book until filled/cancelled.
+          <br />
+          <b>Post-Only</b> — maker only; rejected if it would fill now.
+          <br />
+          <b>IOC</b> — fill what's available now, cancel the rest.
+          <br />
+          <b>FOK</b> — fill the whole amount at once, or nothing.
+        </Help>
+      </div>
       {funding === 'wallet' ? (
         <div className="seg otype">
           {(['market', 'limit'] as WalletType[]).map((t) => (
@@ -247,6 +290,8 @@ export default function OrderTicket({
           ))}
         </div>
       )}
+
+      <div className="type-desc">{typeDesc}</div>
 
       {isLimitPriced ? (
         <label className="field">

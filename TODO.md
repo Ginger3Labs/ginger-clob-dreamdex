@@ -3,14 +3,10 @@
 Working backlog. See `PLAN.md` for the full phased plan.
 
 ## UX / clarity
-- [ ] **Explain order types & funding clearly in the UI.** Add tooltips / an info
-      popover / a small help panel describing each control so users aren't lost:
-  - Funding: **Wallet** (instant, IOC/FOK only) vs **Vault** (deposit first,
-    enables resting GTC/Post-Only).
-  - Order types: **Market**, **Limit**, **GTC**, **Post-Only**, **IOC**, **FOK** —
-    one-line plain-language explanation each, shown inline (hover `?` or expandable).
-  - Vault deposit/withdraw: why you need it for resting orders.
-  - First-time hint / short legend near the ticket.
+- [x] **Explain order types & funding clearly in the UI.** Added `?` Help
+      tooltips on Funding and Order type, plus a dynamic one-line description of
+      the currently selected type under the type selector.
+  - [ ] (follow-up) Vault deposit/withdraw inline help + first-run legend.
 
 ## Layout / polish
 - [x] Order book + mark price must not jump — fixed-height rows, scroll inside.
