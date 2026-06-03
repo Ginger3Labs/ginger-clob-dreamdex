@@ -46,8 +46,13 @@ export const MARKETS: Market[] = [
   { pair: 'WBTC/USDso', symbol: 'WBTC:USDso', pool: '0x3605f28aA7C50e7441211e77Cb0762d49539326C' },
 ];
 
-export const INTERVALS = ['1m', '5m', '15m', '1h', '4h', '1d'] as const;
+// Indexer aggregates from 5m up (1m comes back empty), so 1m is omitted.
+export const INTERVALS = ['5m', '15m', '1h', '4h', '1d'] as const;
 export type Interval = (typeof INTERVALS)[number];
+
+// dreamDEX HTTP API (testnet). Public, no auth. Serves historical OHLCV candles
+// keyed by the market `symbol` (e.g. "SOMI:USDso").
+export const DREAMDEX_API = 'https://stg.api.dreamdex.io';
 
 // --- Minimal SpotPool ABI ----------------------------------------------------
 

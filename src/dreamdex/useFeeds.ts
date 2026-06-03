@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { formatUnits, parseAbiItem } from 'viem';
 import { publicClient } from './client';
-import { SPOT_POOL_ABI, type Interval, type Market } from './config';
+import { DREAMDEX_API, SPOT_POOL_ABI, type Interval, type Market } from './config';
 
-// Testnet has no public REST/WS, so trades & candles are built from on-chain
-// state: candles are sampled live from the EMA mark price, the trade tape is
-// streamed from OrderFilled events. Both build up while the page is open.
+// Chart candles come from the dreamDEX HTTP API (real historical OHLCV); we then
+// keep the latest bucket live by sampling the on-chain EMA mark price. The trade
+// tape & mark-price ticks are still streamed from on-chain state.
 
 export type Candle = {
   timestamp: number; // ms (bucket start)
@@ -26,13 +26,59 @@ export type PriceTick = {
 };
 
 const INTERVAL_MS: Record<Interval, number> = {
-  '1m': 60_000,
   '5m': 300_000,
   '15m': 900_000,
   '1h': 3_600_000,
   '4h': 14_400_000,
   '1d': 86_400_000,
 };
+
+// A single API call only returns the most recent time window, so we page
+// backwards with `endTime` (strictly-less-than the oldest bar so far) to pull
+// the full sparse history the indexer has.
+const MAX_CANDLE_PAGES = 8;
+
+/** Fetch real historical OHLCV candles from the dreamDEX HTTP API. */
+async function fetchApiCandles(symbol: string, interval: Interval): Promise<Candle[]> {
+  const seen = new Map<number, Candle>();
+  let endTime: number | undefined;
+  try {
+    for (let page = 0; page < MAX_CANDLE_PAGES; page++) {
+      const params = new URLSearchParams({ interval, limit: '1000' });
+      if (endTime !== undefined) params.set('endTime', String(endTime));
+      const res = await fetch(
+        `${DREAMDEX_API}/v0/markets/${encodeURIComponent(symbol)}/candles?${params}`,
+      );
+      if (!res.ok) break;
+      const data = await res.json();
+      const raw: any[] = Array.isArray(data?.candles) ? data.candles : [];
+      if (raw.length === 0) break;
+
+      let oldest = Infinity;
+      for (const c of raw) {
+        const ts = Number(c.timestamp);
+        if (!Number.isFinite(ts) || !(Number(c.close) > 0)) continue;
+        if (ts < oldest) oldest = ts;
+        if (!seen.has(ts)) {
+          seen.set(ts, {
+            timestamp: ts,
+            open: String(c.open),
+            high: String(c.high),
+            low: String(c.low),
+            close: String(c.close),
+            volume: String(c.volume ?? '0'),
+          });
+        }
+      }
+      // Stop if this page didn't reach further back than the last one.
+      if (!Number.isFinite(oldest) || (endTime !== undefined && oldest >= endTime)) break;
+      endTime = oldest;
+    }
+  } catch {
+    /* fall through with whatever we collected */
+  }
+  return Array.from(seen.values()).sort((a, b) => a.timestamp - b.timestamp);
+}
 
 const MARK_POLL_MS = 1500;
 const TAPE_POLL_MS = 1200;
@@ -130,7 +176,7 @@ async function readMark(pool: `0x${string}`, quoteDecimals: number): Promise<num
   return null;
 }
 
-/** Live candles sampled from the EMA mark price, bucketed by interval. */
+/** Historical candles from the dreamDEX API, kept live via the EMA mark price. */
 export function useCandles(market: Market, interval: Interval) {
   const [candles, setCandles] = useState<Candle[]>([]);
   const [loading, setLoading] = useState(true);
@@ -169,13 +215,19 @@ export function useCandles(market: Market, interval: Interval) {
       }, MARK_POLL_MS);
     }
 
-    // Backfill recent on-chain history first, then sample live.
+    // Real history from the API; if empty, fall back to recent on-chain backfill.
     setLoading(true);
     setCandles([]);
     (async () => {
-      const seeded = await backfillCandles(market.pool, step, 18);
+      const api = await fetchApiCandles(market.symbol, interval);
       if (cancelled) return;
-      for (const [k, v] of seeded) buckets.set(k, v);
+      if (api.length > 0) {
+        for (const c of api) buckets.set(c.timestamp, c);
+      } else {
+        const seeded = await backfillCandles(market.pool, step, 18);
+        if (cancelled) return;
+        for (const [k, v] of seeded) buckets.set(k, v);
+      }
       if (buckets.size > 0) emit();
       tick();
     })();
@@ -184,7 +236,7 @@ export function useCandles(market: Market, interval: Interval) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [market.pool, interval]);
+  }, [market.pool, market.symbol, interval]);
 
   return { candles, loading };
 }

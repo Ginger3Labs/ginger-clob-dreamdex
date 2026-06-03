@@ -15,7 +15,7 @@ import ConnectButton from './components/ConnectButton';
 
 export default function App() {
   const [marketIdx, setMarketIdx] = useState(0);
-  const [interval, setInterval] = useState<Interval>('1m');
+  const [interval, setInterval] = useState<Interval>('5m');
   const [side, setSide] = useState<'buy' | 'sell'>('buy');
   const [price, setPrice] = useState('');
   const [showMarkets, setShowMarkets] = useState(true);
@@ -151,7 +151,7 @@ export default function App() {
       </div>
 
       <footer>
-        pool {market.pool} · order book on-chain · trades from OrderFilled · candles from mark price · testnet 50312
+        pool {market.pool} · order book on-chain · trades from OrderFilled · candles from dreamDEX API · testnet 50312
       </footer>
     </div>
   );
