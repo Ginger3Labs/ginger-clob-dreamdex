@@ -67,7 +67,13 @@ export default function MarketHeader({
         <Stat label="spread" value={spreadBps === undefined ? '—' : `${spreadBps.toFixed(1)} bps`} />
       </div>
 
-      <div className="mh-right">{right}</div>
+      <div className="mh-right">
+        <span className="net-badge">
+          <span className="net-dot" />
+          Somnia Testnet
+        </span>
+        {right}
+      </div>
     </header>
   );
 }
